@@ -84,7 +84,7 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLin
 	RegisterClass( &wc );
 
 	HWND hwnd = CreateWindowEx(
-		0,
+		WS_EX_TOOLWINDOW,
 		MAIN_CLASS_NAME,
 		L"ded",
 		WS_POPUP,
