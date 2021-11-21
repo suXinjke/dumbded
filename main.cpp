@@ -39,6 +39,9 @@ bool debugMode = false;
 bool dedMonochrome = false;
 bool dedUpsideDown = false;
 
+std::random_device rd;
+std::mt19937 gen( rd() );
+
 void SetupTray( HWND hWnd ) {
 	dedTrayIcon.cbSize = sizeof( NOTIFYICONDATA );
 	dedTrayIcon.hWnd = hWnd;
@@ -55,9 +58,6 @@ bool inRange( T value, T min, T max ) {
 }
 
 void ShowDedRandomly( HWND hWnd ) {
-	static std::random_device rd;
-	static std::mt19937 gen( rd() );
-
 	static std::uniform_int_distribution<int> dedScaleDistribution( 78, 208 );
 	static std::uniform_int_distribution<int> dedScaleErrorDistribution( -48, 48 );
 	static std::uniform_real_distribution<float> unlikelyDistribution( 0, 100 );
@@ -76,7 +76,29 @@ void ShowDedRandomly( HWND hWnd ) {
 	dedMonochrome = inRange( unlikelyDistribution( gen ), debugMode ? 0.0f : 42.0f, 42.2f );
 	dedUpsideDown = inRange( unlikelyDistribution( gen ), debugMode ? 0.0f : 42.0f, 42.2f );
 
-	SetWindowPos( hWnd, HWND_TOPMOST, dedX, dedY, dedWidth, dedHeight, NULL );
+	SetWindowPos( hWnd, HWND_TOPMOST, dedX, dedY, dedWidth, dedHeight, SWP_NOACTIVATE );
+	ShowWindow( hWnd, SW_SHOWNOACTIVATE );
+}
+
+UINT_PTR dedTimer = 42;
+void CALLBACK OnDedDisappearTimer( HWND hWnd, UINT, UINT_PTR, DWORD );
+
+void CALLBACK OnDedShowTimer( HWND hWnd, UINT, UINT_PTR, DWORD ) {
+	static std::uniform_int_distribution<int> dedDisappearTimeDistribution( 100, 3000 );
+
+	ShowDedRandomly( hWnd );
+	KillTimer( hWnd, dedTimer );
+	SetTimer( hWnd, dedTimer, dedDisappearTimeDistribution( gen ), OnDedDisappearTimer );
+}
+void CALLBACK OnDedDisappearTimer( HWND hWnd, UINT, UINT_PTR, DWORD ) {
+	static std::uniform_int_distribution<int> dedAppearTimeDistribution(
+		debugMode ? 1000 : 60000,
+		debugMode ? 3000 : 60000 * 60 * 8
+	);
+
+	ShowWindow( hWnd, SW_HIDE );
+	KillTimer( hWnd, dedTimer );
+	SetTimer( hWnd, dedTimer, dedAppearTimeDistribution( gen ), OnDedShowTimer );
 }
 
 LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam ) {
@@ -87,9 +109,7 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			dedBitmapMonochrome = DedBitmap( hWnd, LR_MONOCHROME );
 			SetupTray( hWnd );
 			SetWindowPos( hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
-			SetTimer( hWnd, NULL, 1000, []( HWND hWnd, UINT, UINT_PTR, DWORD ) {
-				// do something every second
-			} );
+			OnDedShowTimer( hWnd, NULL, NULL, NULL );
 			break;
 		}
 
@@ -189,8 +209,6 @@ int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLin
 	if ( !hwnd ) {
 		return 0;
 	}
-
-	ShowWindow( hwnd, nCmdShow );
 
 	MSG msg = { };
 	while ( GetMessage( &msg, NULL, 0, 0 ) ) {
