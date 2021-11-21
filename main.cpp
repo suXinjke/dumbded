@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <SDKDDKVer.h>
 #include <windows.h>
+#include <ShellAPI.h>
 #include "resource.h"
 
 HINSTANCE hMainWindowInstance;
@@ -9,6 +10,7 @@ BITMAP dedBitmap;
 HBITMAP hDedBitmap;
 HBITMAP hInitialDedBitmap;
 HDC hdcMem;
+NOTIFYICONDATA dedTrayIcon = {};
 
 bool debugMode = false;
 
@@ -21,11 +23,22 @@ void SetupBitmap( HWND hWnd ) {
 	} ReleaseDC( hWnd, hdc );
 }
 
+void SetupTray( HWND hWnd ) {
+	dedTrayIcon.cbSize = sizeof( NOTIFYICONDATA );
+	dedTrayIcon.hWnd = hWnd;
+	dedTrayIcon.uID = 1;
+	dedTrayIcon.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+	dedTrayIcon.hIcon = LoadIcon( hMainWindowInstance, MAKEINTRESOURCE( IDI_ICON1 ) );
+	lstrcpyW( dedTrayIcon.szTip, L"ded" );
+	Shell_NotifyIcon( NIM_ADD, &dedTrayIcon );
+}
+
 LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam ) {
 	switch ( uMsg ) {
 		case WM_CREATE:
 		{
 			SetupBitmap( hWnd );
+			SetupTray( hWnd );
 			SetWindowPos( hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
 			SetTimer( hWnd, NULL, 1000, []( HWND hWnd, UINT, UINT_PTR, DWORD ) {
 				// do something every second
@@ -58,6 +71,7 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 		case WM_DESTROY: {
 			PostQuitMessage( 0 );
+			Shell_NotifyIcon( NIM_DELETE, &dedTrayIcon );
 			DeleteDC( hdcMem );
 			DeleteObject( hDedBitmap );
 			DeleteObject( hInitialDedBitmap );
