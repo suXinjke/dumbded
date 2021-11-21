@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dumbded", "dumbded.vcxproj", "{76DF5913-3876-42D4-BD9B-B8EB1A08D936}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{76DF5913-3876-42D4-BD9B-B8EB1A08D936}.Debug|x86.ActiveCfg = Debug|Win32
+		{76DF5913-3876-42D4-BD9B-B8EB1A08D936}.Debug|x86.Build.0 = Debug|Win32
+		{76DF5913-3876-42D4-BD9B-B8EB1A08D936}.Release|x86.ActiveCfg = Release|Win32
+		{76DF5913-3876-42D4-BD9B-B8EB1A08D936}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7962FBDD-E22B-4F5F-B819-57106065A93A}
+	EndGlobalSection
+EndGlobal
