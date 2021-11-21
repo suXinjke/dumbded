@@ -2,26 +2,42 @@
 #include <SDKDDKVer.h>
 #include <windows.h>
 #include <ShellAPI.h>
+#include <random>
 #include "resource.h"
 
 HINSTANCE hMainWindowInstance;
 
-BITMAP dedBitmap;
-HBITMAP hDedBitmap;
-HBITMAP hInitialDedBitmap;
-HDC hdcMem;
+struct DedBitmap {
+	BITMAP bitmap;
+	HBITMAP hBitmap;
+	HBITMAP hInitialBitmap;
+	HDC hdcMem;
+
+	DedBitmap() {};
+
+	DedBitmap( HWND hWnd, UINT flags ) {
+		hBitmap = ( HBITMAP ) LoadImage( hMainWindowInstance, MAKEINTRESOURCE( BITMAP_DED ), IMAGE_BITMAP, 0, 0, flags );
+		GetObject( hBitmap, sizeof( BITMAP ), &bitmap );
+		auto hdc = GetDC( hWnd ); {
+			hdcMem = CreateCompatibleDC( hdc );
+			hInitialBitmap = ( HBITMAP ) SelectObject( hdcMem, hBitmap );
+		} ReleaseDC( hWnd, hdc );
+	}
+
+	void Delete() {
+		DeleteDC( hdcMem );
+		DeleteObject( hBitmap );
+		DeleteObject( hInitialBitmap );
+	}
+};
+
+DedBitmap dedBitmap;
+DedBitmap dedBitmapMonochrome;
 NOTIFYICONDATA dedTrayIcon = {};
 
 bool debugMode = false;
-
-void SetupBitmap( HWND hWnd ) {
-	hDedBitmap = ( HBITMAP ) LoadImage( hMainWindowInstance, MAKEINTRESOURCE( BITMAP_DED ), IMAGE_BITMAP, 0, 0, 0 );
-	GetObject( hDedBitmap, sizeof( BITMAP ), &dedBitmap );
-	auto hdc = GetDC( hWnd ); {
-		hdcMem = CreateCompatibleDC( hdc );
-		hInitialDedBitmap = ( HBITMAP ) SelectObject( hdcMem, hDedBitmap );
-	} ReleaseDC( hWnd, hdc );
-}
+bool dedMonochrome = false;
+bool dedUpsideDown = false;
 
 void SetupTray( HWND hWnd ) {
 	dedTrayIcon.cbSize = sizeof( NOTIFYICONDATA );
@@ -33,11 +49,42 @@ void SetupTray( HWND hWnd ) {
 	Shell_NotifyIcon( NIM_ADD, &dedTrayIcon );
 }
 
+template <typename T>
+bool inRange( T value, T min, T max ) {
+	return value >= min && value <= max;
+}
+
+void ShowDedRandomly( HWND hWnd ) {
+	static std::random_device rd;
+	static std::mt19937 gen( rd() );
+
+	static std::uniform_int_distribution<int> dedScaleDistribution( 78, 208 );
+	static std::uniform_int_distribution<int> dedScaleErrorDistribution( -48, 48 );
+	static std::uniform_real_distribution<float> unlikelyDistribution( 0, 100 );
+	int dedWidth = dedScaleDistribution( gen );
+	int dedHeight = dedWidth;
+	dedWidth += dedScaleErrorDistribution( gen );
+	dedHeight += dedScaleErrorDistribution( gen );
+
+	int screenWidth = GetSystemMetrics( SM_CXSCREEN );
+	int screenHeight = GetSystemMetrics( SM_CYSCREEN );
+	std::uniform_int_distribution<int> xPosDistribution( 24, screenWidth - dedWidth - 24  );
+	std::uniform_int_distribution<int> yPosDistribution( 24, screenHeight - dedHeight - 24 );
+
+	auto dedX = xPosDistribution( gen );
+	auto dedY = yPosDistribution( gen );
+	dedMonochrome = inRange( unlikelyDistribution( gen ), debugMode ? 0.0f : 42.0f, 42.2f );
+	dedUpsideDown = inRange( unlikelyDistribution( gen ), debugMode ? 0.0f : 42.0f, 42.2f );
+
+	SetWindowPos( hWnd, HWND_TOPMOST, dedX, dedY, dedWidth, dedHeight, NULL );
+}
+
 LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam ) {
 	switch ( uMsg ) {
 		case WM_CREATE:
 		{
-			SetupBitmap( hWnd );
+			dedBitmap = DedBitmap( hWnd, 0 );
+			dedBitmapMonochrome = DedBitmap( hWnd, LR_MONOCHROME );
 			SetupTray( hWnd );
 			SetWindowPos( hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
 			SetTimer( hWnd, NULL, 1000, []( HWND hWnd, UINT, UINT_PTR, DWORD ) {
@@ -53,6 +100,13 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			break;
 		}
 
+		case WM_CHAR: {
+			if ( debugMode && wParam == L'q' ) {
+				ShowDedRandomly( hWnd );
+			}
+			break;
+		}
+
 		case WM_PAINT: {
 			PAINTSTRUCT ps;
 			RECT rect;
@@ -60,11 +114,23 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			auto hdc = BeginPaint( hWnd, &ps ); {
 				GetClientRect( hWnd, &rect );
 				SetStretchBltMode( hdc, STRETCH_HALFTONE );
-				StretchBlt(
-					hdc, 0, 0, rect.right, rect.bottom,
-					hdcMem, 0, 0, dedBitmap.bmWidth, dedBitmap.bmHeight,
-					SRCCOPY
-				);
+
+				const auto &dedBitmapInstance = dedMonochrome ? dedBitmapMonochrome : dedBitmap;
+				const auto &bitmap = dedBitmapInstance.bitmap;
+
+				if ( dedUpsideDown ) {
+					StretchBlt(
+						hdc, 0, 0, rect.right, rect.bottom,
+						dedBitmapInstance.hdcMem, bitmap.bmWidth, bitmap.bmHeight, -bitmap.bmWidth, -bitmap.bmHeight,
+						SRCCOPY
+					);
+				} else {
+					StretchBlt(
+						hdc, 0, 0, rect.right, rect.bottom,
+						dedBitmapInstance.hdcMem, 0, 0, bitmap.bmWidth, bitmap.bmHeight,
+						SRCCOPY
+					);
+				}
 			} EndPaint( hWnd, &ps );
 			break;
 		}
@@ -72,9 +138,8 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		case WM_DESTROY: {
 			PostQuitMessage( 0 );
 			Shell_NotifyIcon( NIM_DELETE, &dedTrayIcon );
-			DeleteDC( hdcMem );
-			DeleteObject( hDedBitmap );
-			DeleteObject( hInitialDedBitmap );
+			dedBitmap.Delete();
+			dedBitmapMonochrome.Delete();
 			return 0;
 		}
 
