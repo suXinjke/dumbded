@@ -10,6 +10,8 @@ HBITMAP hDedBitmap;
 HBITMAP hInitialDedBitmap;
 HDC hdcMem;
 
+bool debugMode = false;
+
 void SetupBitmap( HWND hWnd ) {
 	hDedBitmap = ( HBITMAP ) LoadImage( hMainWindowInstance, MAKEINTRESOURCE( BITMAP_DED ), IMAGE_BITMAP, 0, 0, 0 );
 	GetObject( hDedBitmap, sizeof( BITMAP ), &dedBitmap );
@@ -62,6 +64,14 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			return 0;
 		}
 
+		case WM_CLOSE: {
+			if ( debugMode ) {
+				break;
+			} else {
+				return 0;
+			}
+		}
+
 		default: {
 			break;
 		}
@@ -72,6 +82,7 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 int WINAPI wWinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow ) {
 	hMainWindowInstance = hInstance;
+	debugMode = lstrcmpW( pCmdLine, L"debug-mode" ) == 0;
 	auto MAIN_CLASS_NAME = L"MainClass";
 
 	WNDCLASS wc = {};
