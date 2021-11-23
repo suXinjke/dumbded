@@ -43,12 +43,14 @@ std::random_device rd;
 std::mt19937 gen( rd() );
 
 void SetupTray( HWND hWnd ) {
-	dedTrayIcon.cbSize = sizeof( NOTIFYICONDATA );
-	dedTrayIcon.hWnd = hWnd;
-	dedTrayIcon.uID = 1;
-	dedTrayIcon.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-	dedTrayIcon.hIcon = LoadIcon( hMainWindowInstance, MAKEINTRESOURCE( IDI_ICON1 ) );
-	lstrcpyW( dedTrayIcon.szTip, L"ded" );
+	if ( !dedTrayIcon.uID ) {
+		dedTrayIcon.cbSize = sizeof( NOTIFYICONDATA );
+		dedTrayIcon.hWnd = hWnd;
+		dedTrayIcon.uID = 1;
+		dedTrayIcon.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+		dedTrayIcon.hIcon = LoadIcon( hMainWindowInstance, MAKEINTRESOURCE( IDI_ICON1 ) );
+		lstrcpyW( dedTrayIcon.szTip, L"ded" );
+	}
 	Shell_NotifyIcon( NIM_ADD, &dedTrayIcon );
 }
 
@@ -102,11 +104,14 @@ void CALLBACK OnDedDisappearTimer( HWND hWnd, UINT, UINT_PTR, DWORD ) {
 }
 
 LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam ) {
+	static UINT taskbarRestartMessage;
+
 	switch ( uMsg ) {
 		case WM_CREATE:
 		{
 			dedBitmap = DedBitmap( hWnd, 0 );
 			dedBitmapMonochrome = DedBitmap( hWnd, LR_MONOCHROME );
+			taskbarRestartMessage = RegisterWindowMessage( L"TaskbarCreated" );
 			SetupTray( hWnd );
 			SetWindowPos( hWnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE );
 			OnDedShowTimer( hWnd, NULL, NULL, NULL );
@@ -172,6 +177,10 @@ LRESULT CALLBACK MainWindowProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 		}
 
 		default: {
+			if ( uMsg == taskbarRestartMessage ) {
+				SetupTray( hWnd );
+			}
+
 			break;
 		}
 	}
